@@ -77,14 +77,22 @@
 		}
 
 		for ( var i = 0, l = els.length; i < l; i++ ) {
-			this.options.dataFiller.call(this, els[i], this.infiniteCache[els[i]._phase]);
+			if( !! this.infiniteCache[els[i]._phase]) {
+        this.options.dataFiller.call(this, els[i], this.infiniteCache[els[i]._phase]);
+      } else {
+      	if(this.options.loadingFiller){
+      		this.options.loadingFiller.call(this, els[i]);
+      	} else {
+      		els[i].innerHTML = "";
+      	}
+      }
 		}
 	},
 
-	updateCache: function (start, data) {
+	replaceCache: function (start, data) {
 		var firstRun = this.infiniteCache === undefined;
 
-		this.infiniteCache = {};
+		this.clearCache();
 
 		for ( var i = 0, l = data.length; i < l; i++ ) {
 			this.infiniteCache[start++] = data[i];
@@ -93,6 +101,56 @@
 		if ( firstRun ) {
 			this.updateContent(this.infiniteElements);
 		}
-
 	},
 
+	clearCache: function () {
+		this.infiniteCache = {};
+	},
+
+	updateCache: function (index, data) {
+		//for backwards compatibility
+		if( data.constructor === Array ) {
+			return this.replaceCache(index, data);
+		}
+
+		var firstRun = this.infiniteCache === undefined;
+		if(firstRun){
+			this.replaceCache(0,[]);
+		}
+
+		this.infiniteCache[index] = data;
+
+		//if cached element is in viewport
+		//redraw element for this index
+		var elIndex = this.getElementIndex(index);
+		if( elIndex !== false ) {
+			this.options.dataFiller.call(this, this.infiniteElements[elIndex], this.infiniteCache[index]);
+		}
+	},
+
+	removeFromCache: function (index) {
+		delete this.infiniteCache[index];
+	},
+
+	inViewport: function (cacheIndex) {
+		return this.getElementIndex(cacheIndex) !== false;
+	},
+
+	getElementIndex: function (cacheIndex) {
+		var i = 0, idx = false,
+				length = this.infiniteElements.length;
+		//TODO: improve this check
+		while (idx === false && i < length){
+			if(this.infiniteElements[i]._phase === cacheIndex){
+				idx = i;
+			}
+			i++;
+		}
+		return idx;
+	},
+
+	setInfiniteLimit: function(limit) {
+		this.options.infiniteLimit = limit;
+		limit = -this.options.infiniteLimit * this.infiniteElementHeight + this.wrapperHeight;
+		this.maxScrollY = limit !== undefined ? limit : this.wrapperHeight - this.scrollerHeight;
+	},
